@@ -1,26 +1,22 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { createReadStream, ReadStream } from "fs";
-import formidable from "formidable";
+import { IncomingForm, Files, Fields, File as FFile } from "formidable";
 
-async function parseForm(req: NextApiRequest): Promise<formidable.Files> {
-  const form = formidable();
+async function parseForm(req: NextApiRequest): Promise<Files> {
+  const form = new IncomingForm();
   return new Promise((resolve, reject) => {
-    form.parse(
-      req,
-      (err: Error, fields: formidable.Fields, files: formidable.Files) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(files);
-        }
+    form.parse(req, (err, fields: Fields, files: Files) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(files);
       }
-    );
+    });
   });
 }
 
-async function extractFile(files: formidable.Files): Promise<formidable.File> {
-  console.log("wtf");
-  let firstFile: formidable.File | undefined;
+function extractFile(files: Files): Promise<FFile> {
+  let firstFile: FFile | undefined;
   const temp = Object.values(files)[0];
   if (temp) {
     if (Array.isArray(temp)) {
@@ -39,12 +35,12 @@ async function extractFile(files: formidable.Files): Promise<formidable.File> {
     });
   }
 
-  return firstFile;
+  return Promise.resolve(firstFile);
 }
 
 type Result = { streamHandle: () => ReadStream; fileName: string };
 
-async function process(req: NextApiRequest): Promise<Result> {
+function process(req: NextApiRequest): Promise<Result> {
   return parseForm(req)
     .then((files) => extractFile(files))
     .then((file) => {
@@ -54,6 +50,12 @@ async function process(req: NextApiRequest): Promise<Result> {
       };
     });
 }
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 export default async (req: NextApiRequest, res: NextApiResponse) => {
   return process(req)
