@@ -1,15 +1,35 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { createReadStream, ReadStream } from "fs";
 import { IncomingForm, Files, Fields, File as FFile } from "formidable";
+import { PDFDocument, rgb } from "pdf-lib";
+import { readFile } from "fs/promises";
 
-async function parseForm(req: NextApiRequest): Promise<Files> {
+function extractValue(f: Fields, key: string): string {
+  const value: string | string[] = f[key];
+  if (Array.isArray(value)) {
+    return value.join(" ");
+  } else {
+    return value;
+  }
+}
+
+async function parseForm(
+  req: NextApiRequest
+): Promise<{ files: Files; options: Options }> {
   const form = new IncomingForm();
   return new Promise((resolve, reject) => {
     form.parse(req, (err, fields: Fields, files: Files) => {
       if (err) {
         reject(err);
       } else {
-        resolve(files);
+        let project: string;
+        if (fields.project instanceof Array) {
+        } else {
+          fields.pro;
+        }
+        resolve({
+          files,
+          options: { project: extractValue(fields, "project") },
+        });
       }
     });
   });
@@ -38,17 +58,46 @@ function extractFile(files: Files): Promise<FFile> {
   return Promise.resolve(firstFile);
 }
 
-type Result = { streamHandle: () => ReadStream; fileName: string };
+function loadUploadedFile(filePath: string): Promise<PDFDocument> {
+  return readFile(filePath).then((bytes) => PDFDocument.load(bytes));
+}
 
-function process(req: NextApiRequest): Promise<Result> {
-  return parseForm(req)
-    .then((files) => extractFile(files))
-    .then((file) => {
-      return {
-        streamHandle: () => createReadStream(file.path),
-        fileName: `${file.name}-updated`,
-      };
+type Options = { project: string };
+
+function applyTransformation(doc: PDFDocument, options: Options) {
+  const pages = doc.getPages();
+  for (let index = 0; index < pages.length; index++) {
+    const page = pages[index];
+    const { width, height } = page.getSize();
+
+    const pageNo = String(index + 1).padStart(3, "0");
+
+    const theText = `${options.project}-${pageNo}`;
+    page.drawText(theText, {
+      x: width - 100,
+      y: height - 25,
+      size: 15,
+      color: rgb(0, 0, 0),
     });
+  }
+}
+
+type Result = {
+  pdfBytes: () => Promise<Uint8Array>;
+  fileName: string;
+};
+
+async function process(req: NextApiRequest): Promise<Result> {
+  const { files, options } = await parseForm(req);
+  const file = await extractFile(files);
+  const doc = await loadUploadedFile(file.path);
+
+  applyTransformation(doc, options);
+
+  return {
+    pdfBytes: () => doc.save(),
+    fileName: `result.pdf`,
+  };
 }
 
 export const config = {
@@ -60,13 +109,14 @@ export const config = {
 export default async (req: NextApiRequest, res: NextApiResponse) => {
   return process(req)
     .then((result) => {
-      const stream = result.streamHandle();
-      res.writeHead(200, {
-        "Content-disposition": `attachment; filename="${result.fileName}"`,
-        "Content-Type": "application/pdf",
+      return result.pdfBytes().then((pdfBytes) => {
+        res.writeHead(200, {
+          "Content-disposition": `attachment; filename="${result.fileName}"`,
+          "Content-Type": "application/pdf",
+        });
+        res.end(Buffer.from(pdfBytes));
+        return;
       });
-      stream.pipe(res);
-      return;
     })
     .catch((err) => {
       if (err.code && err.loc) {

@@ -18,7 +18,11 @@ const Home: NextPage = () => {
         </p>
 
         <form encType="multipart/form-data" action="/api/form" method="POST">
+          <input type="text" name="project" placeholder="Numéro de projet"></input>
+          <br />
+          <br />
           <input type="file" name="file" accept=".pdf"></input>
+
           <button type="submit">Upload</button>
         </form>
       </main>
