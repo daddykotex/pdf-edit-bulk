@@ -73,9 +73,11 @@ function applyTransformation(doc: PDFDocument, options: Options) {
     const pageNo = String(index + 1).padStart(3, "0");
 
     const theText = `${options.project}-${pageNo}`;
+    const minPadding = 5;
+    const toLeft = minPadding + theText.length * 10;
     page.drawText(theText, {
-      x: width - 100,
-      y: height - 25,
+      x: width - toLeft,
+      y: height - 35,
       size: 15,
       color: rgb(0, 0, 0),
     });
