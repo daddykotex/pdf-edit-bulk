@@ -71,13 +71,29 @@ function applyTransformation(doc: PDFDocument, options: Options) {
     const { width, height } = page.getSize();
 
     const pageNo = String(index + 1).padStart(3, "0");
+    const rotated =
+      page.getRotation().angle === 90 && page.getRotation().type === "degrees";
 
     const theText = `${options.project}-${pageNo}`;
+
     const minPadding = 5;
     const toLeft = minPadding + theText.length * 10;
+
+    let x, y: number;
+    if (rotated) {
+      x = 15;
+      y = height - toLeft;
+    } else {
+      x = width - toLeft;
+      y = height - 15;
+    }
+
+    console.log("position", rotated, x, y, width, height);
+
     page.drawText(theText, {
-      x: width - toLeft,
-      y: height - 35,
+      x,
+      y,
+      rotate: page.getRotation(),
       size: 15,
       color: rgb(0, 0, 0),
     });
