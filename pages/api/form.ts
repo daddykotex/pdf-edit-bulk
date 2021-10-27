@@ -41,6 +41,7 @@ async function parseForm(
           options: {
             project: extractValue(fields, "project"),
             prefix: extractValue(fields, "prefix"),
+            delimiter: extractValue(fields, "delimiter"),
           },
         });
       }
@@ -75,7 +76,7 @@ function loadPdf(filePath: string): Promise<PDFDocument> {
   return readFile(filePath).then((bytes) => PDFDocument.load(bytes));
 }
 
-async function loadCsv(filePath: string) {
+async function loadCsv(filePath: string, delimiter: string) {
   async function csvIntoArray(
     stream: CsvParserStream<Row, Row>
   ): Promise<Array<CSVData>> {
@@ -94,11 +95,11 @@ async function loadCsv(filePath: string) {
     });
   }
 
-  const stream = parseFile(filePath, { headers: true });
+  const stream = parseFile(filePath, { headers: true, delimiter });
   return await csvIntoArray(stream);
 }
 
-type Options = { prefix: string; project: string };
+type Options = { prefix: string; project: string; delimiter: string };
 
 function applyTransformation(
   doc: PDFDocument,
@@ -119,7 +120,6 @@ function applyTransformation(
     const found = data.find(
       ({ id }) => id.toLocaleLowerCase() === pieceId.toLocaleLowerCase()
     );
-    console.log(found, pieceId);
     const qtyS = found !== undefined ? `Qty: ${found.qty}` : "";
     const theText = `${options.prefix}${pieceId} ${qtyS}`;
 
@@ -155,7 +155,7 @@ async function process(req: NextApiRequest): Promise<Result> {
   const pdf = await extractFile(files, "pdf");
   const csv = await extractFile(files, "csv");
   const doc = await loadPdf(pdf.path);
-  const data = await loadCsv(csv.path);
+  const data = await loadCsv(csv.path, options.delimiter);
 
   applyTransformation(doc, options, data);
 

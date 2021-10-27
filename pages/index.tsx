@@ -39,7 +39,18 @@ const Home: NextPage = () => {
             <input style={leftPad} id="csv" type="file" name="csv" accept=".csv"></input>
           </label>
 
-          <button type="submit">Upload</button>
+          <br />
+          <br />
+          <label htmlFor="#delimiter">Separateur:
+            <select style={leftPad} id="delimiter" name="delimiter" defaultValue=";">
+              <option value=";">;</option>
+              <option value=",">,</option>
+            </select>
+          </label>
+
+          <br />
+          <br />
+          <button type="submit">Soumettre</button>
         </form>
       </main>
 
