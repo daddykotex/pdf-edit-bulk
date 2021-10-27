@@ -3,6 +3,7 @@ import Head from 'next/head'
 import styles from '../styles/Home.module.css'
 
 const Home: NextPage = () => {
+  const leftPad = { marginLeft: '15px' }
   return (
     <div className={styles.container}>
       <Head>
@@ -18,10 +19,25 @@ const Home: NextPage = () => {
         </p>
 
         <form encType="multipart/form-data" action="/api/form" method="POST">
-          <input type="text" name="project" placeholder="Numéro de projet"></input>
+          <label htmlFor="#prefix">Prefixe:
+            <input id="prefix" style={leftPad} type="text" name="prefix" placeholder="ULC"></input>
+          </label>
           <br />
           <br />
-          <input type="file" name="file" accept=".pdf"></input>
+          <label htmlFor="#project">Project:
+            <input id="project" style={leftPad} type="text" name="project" placeholder="Numéro de projet"></input>
+          </label>
+          <br />
+          <br />
+          <label htmlFor="#pdf">PDF:
+            <input style={leftPad} id="pdf" type="file" name="pdf" accept=".pdf"></input>
+          </label>
+
+          <br />
+          <br />
+          <label htmlFor="#csv">CSV:
+            <input style={leftPad} id="csv" type="file" name="csv" accept=".csv"></input>
+          </label>
 
           <button type="submit">Upload</button>
         </form>

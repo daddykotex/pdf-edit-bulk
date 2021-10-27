@@ -1,7 +1,22 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { IncomingForm, Files, Fields, File as FFile } from "formidable";
-import { PDFDocument, rgb } from "pdf-lib";
+import { parseFile, CsvParserStream } from "fast-csv";
+import { Row } from "@fast-csv/parse";
+import {
+  PDFDocument,
+  PDFName,
+  PDFOperator,
+  PDFRawStream,
+  PDFStream,
+  PDFString,
+  rgb,
+} from "pdf-lib";
 import { readFile } from "fs/promises";
+
+type CSVData = {
+  id: string;
+  qty: number;
+};
 
 function extractValue(f: Fields, key: string): string {
   const value: string | string[] = f[key];
@@ -21,23 +36,21 @@ async function parseForm(
       if (err) {
         reject(err);
       } else {
-        let project: string;
-        if (fields.project instanceof Array) {
-        } else {
-          fields.pro;
-        }
         resolve({
           files,
-          options: { project: extractValue(fields, "project") },
+          options: {
+            project: extractValue(fields, "project"),
+            prefix: extractValue(fields, "prefix"),
+          },
         });
       }
     });
   });
 }
 
-function extractFile(files: Files): Promise<FFile> {
+function extractFile(files: Files, key: "csv" | "pdf"): Promise<FFile> {
   let firstFile: FFile | undefined;
-  const temp = Object.values(files)[0];
+  const temp = files[key];
   if (temp) {
     if (Array.isArray(temp)) {
       if (temp.length >= 0) {
@@ -58,13 +71,40 @@ function extractFile(files: Files): Promise<FFile> {
   return Promise.resolve(firstFile);
 }
 
-function loadUploadedFile(filePath: string): Promise<PDFDocument> {
+function loadPdf(filePath: string): Promise<PDFDocument> {
   return readFile(filePath).then((bytes) => PDFDocument.load(bytes));
 }
 
-type Options = { project: string };
+async function loadCsv(filePath: string) {
+  async function csvIntoArray(
+    stream: CsvParserStream<Row, Row>
+  ): Promise<Array<CSVData>> {
+    return new Promise((resolve, reject) => {
+      const rows: Array<CSVData> = [];
+      stream
+        .on("data", (data) => {
+          const id = data["Item ULC"];
+          const qty = parseInt(data["Qty"].trim(), 10);
+          rows.push({ id, qty });
+        })
+        .on("end", () => {
+          resolve(rows);
+        })
+        .on("error", (error) => reject(error));
+    });
+  }
 
-function applyTransformation(doc: PDFDocument, options: Options) {
+  const stream = parseFile(filePath, { headers: true });
+  return await csvIntoArray(stream);
+}
+
+type Options = { prefix: string; project: string };
+
+function applyTransformation(
+  doc: PDFDocument,
+  options: Options,
+  data: Array<CSVData>
+) {
   const pages = doc.getPages();
   for (let index = 0; index < pages.length; index++) {
     const page = pages[index];
@@ -74,7 +114,11 @@ function applyTransformation(doc: PDFDocument, options: Options) {
     const rotated =
       page.getRotation().angle === 90 && page.getRotation().type === "degrees";
 
-    const theText = `${options.project}-${pageNo}`;
+    const pieceId = `${options.project}-${pageNo}`;
+
+    const found = data.find(({ id }) => id.toLocaleLowerCase() === pieceId);
+    const qtyS = found !== undefined ? `Qty: ${found.qty}` : "";
+    const theText = `${options.prefix}${pieceId} ${qtyS}`;
 
     const minPadding = 5;
     const toLeft = minPadding + theText.length * 10;
@@ -88,7 +132,7 @@ function applyTransformation(doc: PDFDocument, options: Options) {
       y = height - 15;
     }
 
-    console.log("position", rotated, x, y, width, height);
+    console.debug("position", rotated, x, y, width, height);
 
     page.drawText(theText, {
       x,
@@ -107,10 +151,12 @@ type Result = {
 
 async function process(req: NextApiRequest): Promise<Result> {
   const { files, options } = await parseForm(req);
-  const file = await extractFile(files);
-  const doc = await loadUploadedFile(file.path);
+  const pdf = await extractFile(files, "pdf");
+  const csv = await extractFile(files, "csv");
+  const doc = await loadPdf(pdf.path);
+  const data = await loadCsv(csv.path);
 
-  applyTransformation(doc, options);
+  applyTransformation(doc, options, data);
 
   return {
     pdfBytes: () => doc.save(),

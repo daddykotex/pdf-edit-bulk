@@ -12,6 +12,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fast-csv/parse": "^4.3.6",
+    "fast-csv": "^4.3.6",
     "formidable": "^1.2.2",
     "next": "11.1.2",
     "pdf-lib": "^1.17.0",
