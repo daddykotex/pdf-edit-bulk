@@ -116,7 +116,10 @@ function applyTransformation(
 
     const pieceId = `${options.project}-${pageNo}`;
 
-    const found = data.find(({ id }) => id.toLocaleLowerCase() === pieceId);
+    const found = data.find(
+      ({ id }) => id.toLocaleLowerCase() === pieceId.toLocaleLowerCase()
+    );
+    console.log(found, pieceId);
     const qtyS = found !== undefined ? `Qty: ${found.qty}` : "";
     const theText = `${options.prefix}${pieceId} ${qtyS}`;
 
@@ -131,8 +134,6 @@ function applyTransformation(
       x = width - toLeft;
       y = height - 15;
     }
-
-    console.debug("position", rotated, x, y, width, height);
 
     page.drawText(theText, {
       x,
